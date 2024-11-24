@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -51,9 +50,12 @@
 <body>
     <div class="container">
         <form method="post">
-            <input type="email" name="email" placeholder="Enter your email" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your email'">
+            <input type="email" name="email" placeholder="Enter your email" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your email'" autofocus>
             <input type="submit" value="Submit">
         </form>
+        <a href="{{ url_for('index') }}" style="display: block; margin-top: 10px;">
+            <button class="login-btn">Schedule Another Query</button>
+        </a>
     </div>
 </body>
 </html>
