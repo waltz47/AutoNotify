@@ -19,7 +19,7 @@
             text-align: center;
             transition: transform 0.5s ease;
         }
-        input[type="text"] {
+        input[type="text"], input[type="email"] {
             width: 300px;
             padding: 10px;
             font-size: 16px;
@@ -27,8 +27,10 @@
             border-radius: 4px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             transition: box-shadow 0.3s ease;
+            display: block; /* Add this line */
+            margin-bottom: 10px; /* Adjust spacing */
         }
-        input[type="text"]:focus {
+        input[type="text"]:focus, input[type="email"]:focus {
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
         input[type="submit"] {
@@ -45,13 +47,26 @@
         input[type="submit"]:hover {
             background-color: #0056b3;
         }
+        /*
+        input[type="email"] {
+            width: 300px;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.3s ease;
+            margin-top: 10px; /* Ensure it is below the query input 
+        }*/
+    
     </style>
 </head>
 <body>
     <div class="container">
         <form method="post">
-            <input type="text" name="query" placeholder="Enter your query" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your query'" autofocus>
-            <input type="email" name="email" placeholder="Enter your email" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your email'" required>
+            {{ csrf_token() }}
+            <input type="text" name="query" placeholder="Enter your query" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your query'" autofocus onkeydown="if(event.key === 'Enter') { event.preventDefault(); document.querySelector('input[name=email]').focus(); }">
+            <input type="email" name="email" placeholder="Enter your email" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your email'" required onkeydown="if(event.key === 'Enter') { this.form.submit(); }">
             <input type="submit" value="Submit">
         </form>
     </div>

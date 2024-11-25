@@ -64,7 +64,8 @@ def start_email_sender():
     thread.daemon = True
     thread.start()
 
+start_query_processor()
+start_email_sender()
+
 if __name__ == '__main__':
-    start_query_processor()
-    start_email_sender()
-    app.run(debug=True)
+    app.run(debug=False)  # Set debug to False for deployment

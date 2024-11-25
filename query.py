@@ -112,10 +112,13 @@ functions = [
 
 def set_notify(query, email):
     # print(f"set_notify called with query: {query} and email: {email}")
+    import html
+    safe_query = html.escape(query)
+    safe_email = html.escape(email)
     messages=[
         {"role": "system", "content": f'''You are a helpful assistant designed to help users schedule email notifications for events according to user requirements.
 
-        The user's email address is: {email} and the current date is {get_current_date()}
+        The user's email address is: {safe_email} and the current date is {get_current_date()}
         
         Here are the rules you should follow:
         1. You can only schedule emails for events that have already happened or are currently occuring.
@@ -123,19 +126,22 @@ def set_notify(query, email):
         3. Ensure that the current date you use for checking whether an event is in the future is the one provided in the prompt and not some other date.
         4. You can search the web for information using the search_web function. Do so even if you already have knowledge of the event to get up-to-date information.
         5. Do not ask questions. Simply provide the information requested along with detailed reasoning.
+        6. When sending emails, write in a professional manner and ensure that the email is well-formatted. Put in all the relevant details in HTML format.
 
         For example:
             User query: Notify me when it's 23 November.
             If the current date is:
-                24 Novemeber: Send an email to the user since 23 November has already passed.
-                23 Novemeber: Send an email to the user since 23 November is the current date.
-                22 Novemeber: Do not send an email to the user since 23 November has not yet occured.
+                24 November: Send an email to the user since 23 November has already passed.
+                23 November: Send an email to the user since 23 November is the current date.
+                22 November: Do not send an email to the user since 23 November has not yet occured.
+        
+        Use the tools available at your disposal to help you with the task.
         '''},
-        {"role": "user", "content": query}
+        {"role": "user", "content": safe_query}
     ]
 
     client = OpenAI(
-        api_key="xai-UiOih20Ae5VKxD7MGb2llRT5N4VMev11oTFnMS7rjsOuxtqOz7dyvS2oNBbMdrmoEM00vWYuZPQ5zrqX",
+        api_key=os.environ['XAI_API_KEY'],
         base_url="https://api.x.ai/v1",
     )
 
@@ -149,7 +155,7 @@ def set_notify(query, email):
             model=MODEL_NAME,
             messages=messages,
             tools=tools,
-            temperature=0.0,
+            temperature=0.4,
         )
 
         print("LLM response: ", response.choices[0].message.content)
@@ -161,9 +167,9 @@ def set_notify(query, email):
         except:
             #exit when no more tool calls left to do
             # assert(0) #invalid call
-            # print("INVALID TOOL CALL. SHOULD PRINT EXIT MESSAGE INSTEAD")
-            # break
-            continue
+            print("INVALID TOOL CALL. SHOULD PRINT EXIT MESSAGE INSTEAD")
+            break
+            # continue/
 
         # call the tool
         function_name = tool_call.function.name

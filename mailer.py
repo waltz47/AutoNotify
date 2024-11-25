@@ -10,7 +10,7 @@ from pprint import pprint
 def send_mail(heading, body, recipient_email):
     print("Sending email to", recipient_email)
     print(f"Heading: {heading}\nBody: {body}")
-    key = "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"
+    key = os.environ["MAILSEND_API_KEY"]
     # Initialize configuration instance
     configuration = sib_api_v3_sdk.Configuration()
     configuration.api_key['api-key'] = key
