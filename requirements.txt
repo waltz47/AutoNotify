@@ -1,9 +1,10 @@
 beautifulsoup4==4.12.3
 Flask==3.1.0
 flask_sqlalchemy==3.1.1
+flask_wtf==1.2.2
 googlesearch_python==1.2.5
 mailersend==0.5.8
 ollama==0.4.1
-openai==1.55.0
+openai==1.55.2
 Requests==2.32.3
 sib_api_v3_sdk==7.6.0
