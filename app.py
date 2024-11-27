@@ -4,8 +4,11 @@ from models import db, Email, Query
 from threading import Thread
 import time
 from mailer import send_pending_emails
+from flask_wtf import CSRFProtect
 
 app = Flask(__name__)
+app.secret_key = 'your_secret_key_here'  # Replace with your secret key
+csrf = CSRFProtect(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///emails.db'
 db.init_app(app)
 with app.app_context():
@@ -68,4 +71,4 @@ start_query_processor()
 start_email_sender()
 
 if __name__ == '__main__':
-    app.run(debug=False)  # Set debug to False for deployment
+    app.run(debug=True)  # Set debug to False for deployment

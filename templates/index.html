@@ -64,7 +64,7 @@
 <body>
     <div class="container">
         <form method="post">
-            {{ csrf_token() }}
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="text" name="query" placeholder="Enter your query" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your query'" autofocus onkeydown="if(event.key === 'Enter') { event.preventDefault(); document.querySelector('input[name=email]').focus(); }">
             <input type="email" name="email" placeholder="Enter your email" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your email'" required onkeydown="if(event.key === 'Enter') { this.form.submit(); }">
             <input type="submit" value="Submit">

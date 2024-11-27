@@ -20,6 +20,14 @@ MODEL_NAME = "grok-beta"
 def get_current_date():
     return datetime.now().strftime("%d %b, %Y")
 
+def date_has_passed(date_str):
+    # Parse the input date string into a date object
+    input_date = datetime.strptime(date_str, "%d %b, %Y").date()
+    # Get the current date
+    current_date = datetime.now().date()
+    # Compare dates
+    return input_date < current_date
+
 def search_web(query):
 
     def scrape(url):
@@ -59,6 +67,7 @@ def call_function_by_name(function_name, arguments):
         if function["name"] == function_name:
             return globals()[function_name](**arguments)
     raise ValueError(f"Function {function_name} not found")
+
 
 functions = [
     {
@@ -100,14 +109,21 @@ functions = [
             "optional": [],
         },
     },
-    # {
-    #     "name": "get_current_date",
-    #     "description": "Get the current date and time",
-    #     "parameters": {
-    #         "type": "object",
-    #         "properties": {},
-    #     }
-    # }
+    {
+        "name": "date_has_passed",
+        "description": "Compare a date with the current date and return if it has already passed",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "date_str": {
+                    "type": "string",
+                    "description": "The date string to compare, in the format '%d %b, %Y'",
+                },
+            },
+            "required": ["date_str"],
+            "optional": [],
+        },
+    },
 ]
 
 def set_notify(query, email):
@@ -116,26 +132,18 @@ def set_notify(query, email):
     safe_query = html.escape(query)
     safe_email = html.escape(email)
     messages=[
-        {"role": "system", "content": f'''You are a helpful assistant designed to help users schedule email notifications for events according to user requirements.
+        {"role": "system", "content": f'''You are a helpful assistant designed to notify customer about the things they want to be notified about. It could be anything: concerts, rocket launches, product launches, upcoming podcasts, dates, etc. 
+        Please follow these instructions:
+        1. Rephrase the question in a way that makes it obvious. For eg. If the customer says "When is starship flight 5 launching", it can rephrased as "Notify me when starship flight 5 launches".
+        2. Prepare a search term/phrase that can be used to search the web for information. Search the web for the term (You have tools available for that). The result might be old or new information. Go through it carefully.
+        3. Go through the search results and find the date on which the event happened. Call the `date_has_passed` tool provided to you to check if that date has passed.
+        4. If the date has passed, you need to create en email with a heading and body. The body should be in the following format: "Hi, you are being notified that......". Use HTML markdown for the body.
+        5. If the date has not passed, go to step #6.
+        5. Call the `store_email_in_db` tool to store the email details in the database.
+        6. Print `exit` to end the conversation.
 
-        The user's email address is: {safe_email} and the current date is {get_current_date()}
-        
-        Here are the rules you should follow:
-        1. You can only schedule emails for events that have already happened or are currently occuring.
-        2. You cannot schedule emails for events that will occur in the future. In this case print "exit" along with a detailed reasoning.
-        3. Ensure that the current date you use for checking whether an event is in the future is the one provided in the prompt and not some other date.
-        4. You can search the web for information using the search_web function. Do so even if you already have knowledge of the event to get up-to-date information.
-        5. Do not ask questions. Simply provide the information requested along with detailed reasoning.
-        6. When sending emails, write in a professional manner and ensure that the email is well-formatted. Put in all the relevant details in HTML format.
+        The user's email for your reference is: {safe_email}.
 
-        For example:
-            User query: Notify me when it's 23 November.
-            If the current date is:
-                24 November: Send an email to the user since 23 November has already passed.
-                23 November: Send an email to the user since 23 November is the current date.
-                22 November: Do not send an email to the user since 23 November has not yet occured.
-        
-        Use the tools available at your disposal to help you with the task.
         '''},
         {"role": "user", "content": safe_query}
     ]
@@ -179,14 +187,14 @@ def set_notify(query, email):
         print(f"Result of {function_name} is", result)
 
         function_call_result_message = {
-            "role": "tool",
-            "content": result,
-            "tool_call_id": response.choices[0].message.tool_calls[0].id
+            "role": "function",
+            "name": function_name,
+            "content": str(result)  # Convert result to string
         }
     
         # append tool results to the history and repeat
         messages.append(function_call_result_message)
-        if "exit" in response.choices[0].message.content:
+        if "exit" in response.choices[0].message.content.lower():
             break
     
         cnt += 1
