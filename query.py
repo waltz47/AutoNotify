@@ -11,7 +11,7 @@ import json
 from datetime import datetime
 from flask import Flask, render_template, request
 from mailer import *
-from models import db, Email
+from models import db, Email, Query
 import urllib
 
 #VARIABLES
@@ -29,19 +29,27 @@ def date_has_passed(date_str):
     return input_date < current_date
 
 def search_web(query):
+    import urllib.request
 
     def scrape(url):
-        thepage = urllib.request.urlopen(url)
-        soup = BeautifulSoup(thepage, "html.parser")
-        return soup.get_text()
+        try:
+            thepage = urllib.request.urlopen(url, timeout=10)
+            soup = BeautifulSoup(thepage, "html.parser")
+            text = soup.get_text()
+            words = text.split()
+            limited_text = ' '.join(words[:1000])
+            return limited_text
+        except Exception as e:
+            print(f"Error scraping {url}: {e}")
+            return ""
 
     print(f"Search for {query}")
-    s = search(query, num_results=20, advanced=True)
+    s = search(query, num_results=8)
     ret_str = ""
-    for i in s:
-        # print("Scraping url:", i.url)
-        ret_str += i.description + "\n"
-    # print("Search results: ", ret_str)
+    for url in s:
+        print("Scraping url:", url)
+        content = scrape(url)
+        ret_str += content + "\n"
     return ret_str
 
 def email_exists(recipient_email, heading, body):
@@ -53,6 +61,11 @@ def store_email_in_db(heading, body, recipient_email):
     # Store email details in the database
     email_entry = Email(recipient_email=recipient_email, heading=heading, body=body)
     db.session.add(email_entry)
+    db.session.commit()
+    # Remove the corresponding event (Query entry)
+    query_entries = db.session.query(Query).filter_by(email=recipient_email).all()
+    for query_entry in query_entries:
+        db.session.delete(query_entry)
     db.session.commit()
     return "Email details stored in database."
 

@@ -46,11 +46,13 @@ def process_queries():
     while True:
         with app.app_context():
             print("process_queries function called")
-            queries = db.session.query(Query).filter(Query.email_sent == False).all()
+            # Fetch queries that are not being processed
+            queries = db.session.query(Query).filter(Query.email_sent == False, Query.is_processing == False).all()
             for query_entry in queries:
                 # Check if deadline has passed
                 if datetime.now() > query_entry.deadline:
                     db.session.delete(query_entry)
+                    db.session.commit()
                     continue
                 # Determine if it's time to trigger the query
                 should_run = False
@@ -61,14 +63,22 @@ def process_queries():
                     if datetime.now() - query_entry.last_run_time >= interval:
                         should_run = True
                 if should_run:
-                    query_entry.last_run_time = datetime.now()
-                    db.session.commit()
-                    set_notify(query_entry.query, query_entry.email)
-                    if check_email_sent(query_entry.email):
-                        query_entry.email_sent = True
+                    try:
+                        # Set is_processing to True and commit before processing
+                        query_entry.is_processing = True
+                        query_entry.last_run_time = datetime.now()
                         db.session.commit()
-            db.session.commit()
-        time.sleep(10)  # Adjust sleep time if necessary
+                        # Process the query
+                        set_notify(query_entry.query, query_entry.email)
+                        # After processing, reset is_processing to False
+                        query_entry.is_processing = False
+                        db.session.commit()
+                    except Exception as e:
+                        # In case of an error, reset is_processing and log the error
+                        query_entry.is_processing = False
+                        db.session.commit()
+                        print(f"Error processing query {query_entry.id}: {e}")
+            time.sleep(10)  # Adjust sleep time if necessary
 
 def parse_interval(trigger_time):
     if trigger_time == '30s':
