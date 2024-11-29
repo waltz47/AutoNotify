@@ -163,7 +163,7 @@ def set_notify(query, email):
             model=MODEL_NAME,
             messages=messages,
             tools=tools,
-            temperature=0.4,
+            temperature=0.0,
         )
 
         print("LLM response: ", response.choices[0].message.content)
