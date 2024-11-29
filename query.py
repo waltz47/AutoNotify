@@ -137,7 +137,7 @@ def set_notify(query, email):
         1. Rephrase the question in a way that makes it obvious. For eg. If the customer says "When is starship flight 5 launching", it can rephrased as "Notify me when starship flight 5 launches".
         2. Prepare a search term/phrase that can be used to search the web for information. Search the web for the term (You have tools available for that). The result might be old or new information. Go through it carefully.
         3. Go through the search results and find the date on which the event happened. Call the `date_has_passed` tool provided to you to check if that date has passed.
-        4. If the date has passed, you need to create en email with a heading and body. The body should be in the following format: "Hi, you are being notified that......". Use HTML markdown for the body.
+        4. If the date has passed, you need to create en email with a heading and body. The body should be in the following format: "Hi, you are being notified that......". Use HTML formatting for the body.
         5. If the date has not passed, go to step #6.
         5. Call the `store_email_in_db` tool to store the email details in the database.
         6. Print `exit` to end the conversation.
@@ -163,7 +163,7 @@ def set_notify(query, email):
             model=MODEL_NAME,
             messages=messages,
             tools=tools,
-            temperature=0.4,
+            temperature=0.0,
         )
 
         print("LLM response: ", response.choices[0].message.content)

@@ -5,6 +5,7 @@ from threading import Thread
 import time
 from mailer import send_pending_emails
 from flask_wtf import CSRFProtect
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'  # Replace with your secret key
@@ -20,7 +21,9 @@ def index():
     if request.method == 'POST':
         query = request.form['query']
         email = request.form['email']
-        store_query_in_db(query, email)
+        trigger_time = request.form['trigger_time']
+        deadline = request.form['deadline']
+        store_query_in_db(query, email, trigger_time, deadline)
         return redirect(url_for('confirmation', email=email))
     return render_template('index.html')
 
@@ -29,8 +32,11 @@ def confirmation():
     email = request.args.get('email')
     return render_template('confirmation.html', email=email)
 
-def store_query_in_db(query, email):
-    query_entry = Query(query=query, email=email)
+def store_query_in_db(query, email, trigger_time, deadline):
+    deadline_dt = datetime.strptime(deadline, '%Y-%m-%d')
+    # Assume End Of Day if time is not provided
+    deadline_dt = deadline_dt.replace(hour=23, minute=59, second=59)
+    query_entry = Query(query=query, email=email, trigger_time=trigger_time, deadline=deadline_dt)
     db.session.add(query_entry)
     db.session.commit()
 
@@ -40,15 +46,46 @@ def process_queries():
     while True:
         with app.app_context():
             print("process_queries function called")
-            queries = db.session.query(Query).filter_by(is_processing=False).all()
+            queries = db.session.query(Query).filter(Query.email_sent == False).all()
             for query_entry in queries:
-                print(f"Processing query: {query_entry.query} for email: {query_entry.email}")
-                query_entry.is_processing = True
-                db.session.commit()
-                set_notify(query_entry.query, query_entry.email)
-                db.session.delete(query_entry)
+                # Check if deadline has passed
+                if datetime.now() > query_entry.deadline:
+                    db.session.delete(query_entry)
+                    continue
+                # Determine if it's time to trigger the query
+                should_run = False
+                if query_entry.last_run_time is None:
+                    should_run = True
+                else:
+                    interval = parse_interval(query_entry.trigger_time)
+                    if datetime.now() - query_entry.last_run_time >= interval:
+                        should_run = True
+                if should_run:
+                    query_entry.last_run_time = datetime.now()
+                    db.session.commit()
+                    set_notify(query_entry.query, query_entry.email)
+                    if check_email_sent(query_entry.email):
+                        query_entry.email_sent = True
+                        db.session.commit()
             db.session.commit()
-        time.sleep(10)
+        time.sleep(10)  # Adjust sleep time if necessary
+
+def parse_interval(trigger_time):
+    if trigger_time == '30s':
+        return timedelta(seconds=30)
+    elif trigger_time == '1h':
+        return timedelta(hours=1)
+    elif trigger_time == '1d':
+        return timedelta(days=1)
+    elif trigger_time == '1w':
+        return timedelta(weeks=1)
+    elif trigger_time == '1m':
+        return timedelta(days=30)
+    else:
+        return timedelta(seconds=30)  # Default interval
+
+def check_email_sent(email):
+    return db.session.query(Email).filter_by(recipient_email=email).first() is not None
 
 def start_query_processor():
     global query_processor_thread

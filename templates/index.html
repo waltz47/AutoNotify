@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auto Notifier</title>
+    <title>AutoNotify</title>
     <style>
         body {
             display: flex;
@@ -58,15 +58,67 @@
             transition: box-shadow 0.3s ease;
             margin-top: 10px; /* Ensure it is below the query input 
         }*/
-    
+        h1 {
+            font-size: 48px;
+            color: #007BFF;
+            margin-bottom: 5px;
+            animation: fadeInDown 1s;
+        }
+        h2 {
+            font-size: 24px;
+            color: #555;
+            margin-bottom: 30px;
+            animation: fadeInUp 1s;
+        }
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        select, input[type="date"] {
+            width: 320px;
+            padding: 10px;
+            font-size: 16px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: box-shadow 0.3s ease;
+            background-color: #fff;
+            display: block;
+        }
+        select:focus, input[type="date"]:focus {
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        /* Placeholder styling for date input */
+        input[type="date"]::before {
+            color: #999;
+            content: attr(placeholder);
+        }
+        input[type="date"]:focus::before {
+            content: '';
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <h1>AutoNotify</h1>
+        <h2>Get relevant information instantly</h2>
         <form method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="text" name="query" placeholder="Enter your query" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your query'" autofocus onkeydown="if(event.key === 'Enter') { event.preventDefault(); document.querySelector('input[name=email]').focus(); }">
             <input type="email" name="email" placeholder="Enter your email" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your email'" required onkeydown="if(event.key === 'Enter') { this.form.submit(); }">
+            <select name="trigger_time">
+                <option value="30s">Every 30 seconds</option>
+                <option value="1h">Every hour</option>
+                <option value="1d">Every day</option>
+                <option value="1w">Every week</option>
+                <option value="1m">Every month</option>
+            </select>
+            <input type="date" name="deadline" placeholder="Select a deadline" required>
             <input type="submit" value="Submit">
         </form>
     </div>
