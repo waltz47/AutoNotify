@@ -13,6 +13,9 @@ from flask import Flask, render_template, request
 from mailer import *
 from models import db, Email, Query
 import urllib
+# from GoogleNews import GoogleNews
+from gnews import GNews
+from googlenewsdecoder import new_decoderv1
 
 #VARIABLES
 MODEL_NAME = "grok-beta"
@@ -32,24 +35,34 @@ def search_web(query):
     import urllib.request
 
     def scrape(url):
+        print(f"Scraping {url}")
         try:
             thepage = urllib.request.urlopen(url, timeout=10)
             soup = BeautifulSoup(thepage, "html.parser")
             text = soup.get_text()
             words = text.split()
-            limited_text = ' '.join(words[:1000])
+            limited_text = ' '.join(words[:500])
             return limited_text
         except Exception as e:
             print(f"Error scraping {url}: {e}")
             return ""
 
     print(f"Search for {query}")
-    s = search(query, num_results=8)
-    ret_str = ""
-    for url in s:
-        print("Scraping url:", url)
-        content = scrape(url)
-        ret_str += content + "\n"
+    googlenews = GNews(max_results=10)
+    articles = googlenews.get_news(query)
+    # print(articles)
+    ret_str = "***********************************ARTICLES***********************************\n"
+    for article in articles:
+        try:
+            real_url = article.get('url')
+            ret_str += f"Title: {article.get('title')}\n"
+            ret_str += f"Published Date: {article.get('published date')}\n"
+            ret_str += f"Description: {article.get('description')}\n"
+            # ret_str += f"Content:\n{scrape(new_decoderv1(real_url,0)['decoded_url'])}\n\n"
+        except Exception as e:
+            print(f"Error fetching article {article.get('title')}: {e}")
+            continue
+    ret_str += "***********************************END OF ARTICLES***********************************\n"
     return ret_str
 
 def email_exists(recipient_email, heading, body):
@@ -69,6 +82,39 @@ def store_email_in_db(heading, body, recipient_email):
     db.session.commit()
     return "Email details stored in database."
 
+def search_flights(origin, destination, depart_date):
+    import requests
+    import json
+    url = "https://sky-scanner3.p.rapidapi.com/flights/search-multi-city"
+    payload = {
+        "market": "IN",
+        "locale": "en-US",
+        "currency": "INR",
+        "adults": 1,
+        "children": 0,
+        "infants": 0,
+        "cabinClass": "economy",
+        "stops": ["direct"],
+        "sort": "cheapest_first",
+        "flights": [
+            {
+                "fromEntityId": origin,
+                "toEntityId": destination,
+                "departDate": depart_date
+            }
+        ]
+    }
+    headers = {
+        "x-rapidapi-key": os.environ.get("RAPIDAPI_KEY"),
+        "x-rapidapi-host": "sky-scanner3.p.rapidapi.com",
+        "Content-Type": "application/json"
+    }
+    response = requests.post(url, json=payload, headers=headers)
+    return response.json()['data']['filterStats']['stopPrices']
+
+def is_number_less_than(number1, number2):
+    return number1 < number2
+
 def call_function_by_name(function_name, arguments):
     print("Function call: ", function_name)
     if function_name == "store_email_in_db":
@@ -76,6 +122,10 @@ def call_function_by_name(function_name, arguments):
     elif function_name == "search_web":
         search_results = search_web(**arguments)
         return search_results
+    elif function_name == "search_flights":
+        return search_flights(**arguments)
+    elif function_name == "is_number_less_than":
+        return is_number_less_than(**arguments)
     for function in functions:
         if function["name"] == function_name:
             return globals()[function_name](**arguments)
@@ -137,6 +187,47 @@ functions = [
             "optional": [],
         },
     },
+    {
+        "name": "search_flights",
+        "description": "Search for flights between two locations on a specific date",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "origin": {
+                    "type": "string",
+                    "description": "The IATA code of the origin airport (e.g., 'PNQ')",
+                },
+                "destination": {
+                    "type": "string",
+                    "description": "The IATA code of the destination airport (e.g., 'BLR')",
+                },
+                "depart_date": {
+                    "type": "string",
+                    "description": "The departure date in 'YYYY-MM-DD' format",
+                },
+            },
+            "required": ["origin", "destination", "depart_date"],
+        },
+    },
+    {
+        "name": "is_number_less_than",
+        "description": "Compare two numbers and return if the first is less than the second",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "number1": {
+                    "type": "number",
+                    "description": "The first number to compare",
+                },
+                "number2": {
+                    "type": "number",
+                    "description": "The second number to compare",
+                },
+            },
+            "required": ["number1", "number2"],
+        },
+    },
+    
 ]
 
 def set_notify(query, email):
@@ -148,11 +239,11 @@ def set_notify(query, email):
         {"role": "system", "content": f'''You are a helpful assistant designed to notify customer about the things they want to be notified about. It could be anything: concerts, rocket launches, product launches, upcoming podcasts, dates, etc. 
         Please follow these instructions:
         1. Rephrase the question in a way that makes it obvious. For eg. If the customer says "When is starship flight 5 launching", it can rephrased as "Notify me when starship flight 5 launches".
-        2. Prepare a search term/phrase that can be used to search the web for information. Search the web for the term (You have tools available for that). The result might be old or new information. Go through it carefully.
-        3. Go through the search results and find the date on which the event happened. Call the `date_has_passed` tool provided to you to check if that date has passed.
-        4. If the date has passed, you need to create en email with a heading and body. The body should be in the following format: "Hi, you are being notified that......". Use HTML formatting for the body.
-        5. If the date has not passed, go to step #6.
-        5. Call the `store_email_in_db` tool to store the email details in the database.
+        2. Prepare a search term/phrase that can be used to search the web for news and information. Use the tools at your disposal to get the latest information. The result might be old or new information. Go through it carefully.
+        3. Go through the search results and find the relevant data. For dates or numbers, use the tools for comparison. Ensure to pass the input in the correct format and make decisions based only on the tool results.
+        4. If the event has already occured, you need to create en email with a heading and body. The body should be in the following format: "Hi, you are being notified that......". Use HTML formatting for the body. The email should contain all the relevant details. Sign off as 'AutoNotify'.
+        5. If the event has not occured, go to step #6.
+        5. Use the `store_email_in_db` tool to store the email details in the database to be sent.
         6. Print `exit` to end the conversation.
 
         The user's email for your reference is: {safe_email}.
