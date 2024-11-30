@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, jsonify
 from query import set_notify
 from models import db, Email, Query
 from threading import Thread
@@ -6,6 +6,7 @@ import time
 from mailer import send_pending_emails
 from flask_wtf import CSRFProtect
 from datetime import datetime, timedelta
+from fn import get_random_events
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'  # Replace with your secret key
@@ -31,6 +32,10 @@ def index():
 def confirmation():
     email = request.args.get('email')
     return render_template('confirmation.html', email=email)
+
+@app.route('/events', methods=['GET'])
+def events():
+    return jsonify(get_random_events())
 
 def store_query_in_db(query, email, trigger_time, deadline):
     deadline_dt = datetime.strptime(deadline, '%Y-%m-%d')
@@ -69,20 +74,22 @@ def process_queries():
                         query_entry.last_run_time = datetime.now()
                         db.session.commit()
                         # Process the query
-                        set_notify(query_entry.query, query_entry.email)
+                        set_notify(query_entry.query, query_entry.email, session=db.session)
                         # After processing, reset is_processing to False
                         query_entry.is_processing = False
                         db.session.commit()
+                        # No need to delete the Query entry here
                     except Exception as e:
                         # In case of an error, reset is_processing and log the error
                         query_entry.is_processing = False
                         db.session.commit()
                         print(f"Error processing query {query_entry.id}: {e}")
-            time.sleep(10)  # Adjust sleep time if necessary
+            db.session.commit()
+            time.sleep(60)  # Adjust sleep time if necessary
 
 def parse_interval(trigger_time):
-    if trigger_time == '30s':
-        return timedelta(seconds=30)
+    if trigger_time == '60s':
+        return timedelta(seconds=60)
     elif trigger_time == '1h':
         return timedelta(hours=1)
     elif trigger_time == '1d':
@@ -92,7 +99,7 @@ def parse_interval(trigger_time):
     elif trigger_time == '1m':
         return timedelta(days=30)
     else:
-        return timedelta(seconds=30)  # Default interval
+        return timedelta(seconds=3000)  # Default interval
 
 def check_email_sent(email):
     return db.session.query(Email).filter_by(recipient_email=email).first() is not None
@@ -109,7 +116,7 @@ def start_email_sender():
         while True:
             with app.app_context():
                 send_pending_emails()
-            time.sleep(10)
+            time.sleep(60)
     thread = Thread(target=run)
     thread.daemon = True
     thread.start()

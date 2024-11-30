@@ -101,6 +101,41 @@
         input[type="date"]:focus::before {
             content: '';
         }
+        .marquee {
+            overflow: hidden;
+            white-space: nowrap;
+            box-sizing: border-box;
+            position: relative; /* Change position to relative */
+            bottom: 0;
+            width: 100%;
+        }
+        .marquee-content {
+            display: inline-block;
+            animation: marquee 15s linear infinite;
+        }
+        .event-card {
+            display: inline-block;
+            margin-right: 50px;
+            padding: 10px 20px;
+            background-color: #fff; /* White background */
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #000; /* Black text */
+        }
+        @keyframes marquee {
+            from { transform: translateX(-10%); }
+            to { transform: translateX(10%); }
+        }
+        .terminal-background {
+            background-color: #1e1e1e; /* Dark terminal background */
+            color: #c0c0c0; /* Grey text color */
+            font-family: 'Courier New', Courier, monospace; /* Monospaced font */
+            padding: 10px 0; /* Adjust padding to fit full width */
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
@@ -109,18 +144,56 @@
         <h2>Get relevant information instantly</h2>
         <form method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="text" name="query" placeholder="Enter your query" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your query'" autofocus onkeydown="if(event.key === 'Enter') { event.preventDefault(); document.querySelector('input[name=email]').focus(); }">
-            <input type="email" name="email" placeholder="Enter your email" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your email'" required onkeydown="if(event.key === 'Enter') { this.form.submit(); }">
-            <select name="trigger_time">
-                <option value="30s">Every 30 seconds</option>
+            <input type="text" id="query" name="query" placeholder="Enter your query" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your query'" autofocus onkeydown="if(event.key === 'Enter') { event.preventDefault(); document.querySelector('input[name=email]').focus(); }">
+            <input type="email" id="email" name="email" placeholder="Enter your email" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your email'" required onkeydown="if(event.key === 'Enter') { this.form.submit(); }">
+            <select id="trigger_time" name="trigger_time">
+                <option value="60s">Every minute</option>
                 <option value="1h">Every hour</option>
                 <option value="1d">Every day</option>
                 <option value="1w">Every week</option>
                 <option value="1m">Every month</option>
             </select>
-            <input type="date" name="deadline" placeholder="Select a deadline" required>
+            <input type="date" id="deadline" name="deadline" placeholder="Select a deadline" required>
             <input type="submit" value="Submit">
         </form>
     </div>
+    <div class="terminal-background">
+        <div class="marquee">
+            <div class="marquee-content" id="event-cards">
+                <!-- Event cards will be generated here -->
+            </div>
+        </div>
+    </div>
+    <script>
+        // Fetch random and crazy notification events from the server
+        async function fetchEvents() {
+            const response = await fetch('/events');
+            const events = await response.json();
+            return events;
+        }
+
+        // Create event cards and add them to the marquee
+        async function createEventCards() {
+            const eventCardsContainer = document.getElementById('event-cards');
+            const events = await fetchEvents();
+            events.forEach(event => {
+                const card = document.createElement('div');
+                card.className = 'event-card';
+                card.textContent = event.query;
+                card.addEventListener('click', () => {
+                    document.getElementById('query').value = event.query;
+                    document.getElementById('email').value = ''; // Leave email form as-is
+                    document.getElementById('trigger_time').value = event.trigger_time;
+                    document.getElementById('deadline').value = event.deadline;
+                });
+                eventCardsContainer.appendChild(card);
+            });
+        }
+
+        // Initialize the event cards when the page loads
+        window.onload = function() {
+            createEventCards();
+        };
+    </script>
 </body>
 </html>
