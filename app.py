@@ -8,9 +8,10 @@ from flask_wtf import CSRFProtect
 from datetime import datetime, timedelta
 from fn import get_random_events
 import argparse
+from secrets import token_hex
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key_here'  # Replace with your secret key
+app.secret_key = token_hex(16)  # Replace with your secret key
 csrf = CSRFProtect(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///emails.db'
 db.init_app(app)
@@ -18,9 +19,8 @@ with app.app_context():
     db.drop_all()
     db.create_all()
 
-parser = argparse.ArgumentParser(description='AutoNotifier Application')
-parser.add_argument('--debug', action='store_true', help='Run the application in debug mode')
-args = parser.parse_args()
+debug_mode = False  # Default debug mode
+frequency = 1800    # Default frequency
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -53,7 +53,6 @@ def store_query_in_db(query, email, trigger_time, deadline):
 query_processor_thread = None
 
 def process_queries():
-    frequency = 10 if args.debug else 1800
     while True:
         with app.app_context():
             print("Processing queries")
@@ -119,7 +118,6 @@ def start_query_processor():
 
 def start_email_sender():
     def run():
-        frequency = 10 if args.debug else 1800
         while True:
             with app.app_context():
                 send_pending_emails()
@@ -132,4 +130,9 @@ start_query_processor()
 start_email_sender()
 
 if __name__ == '__main__':
-    app.run(debug=args.debug)  # Set debug based on argument
+    parser = argparse.ArgumentParser(description='AutoNotifier Application')
+    parser.add_argument('--debug', action='store_true', help='Run the application in debug mode')
+    args = parser.parse_args()
+    debug_mode = args.debug
+    frequency = 10 if debug_mode else 1800
+    app.run(debug=debug_mode)  # Set debug based on argument

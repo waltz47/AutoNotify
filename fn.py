@@ -52,7 +52,7 @@ def scrape(url):
         soup = BeautifulSoup(thepage, "html.parser")
         text = soup.get_text()
         words = text.split()
-        limited_text = ' '.join(words[:1000])
+        limited_text = ' '.join(words[:500])
         return limited_text
     except Exception as e:
         print(f"Error scraping {url}: {e}")
@@ -60,7 +60,7 @@ def scrape(url):
 
 def search_web(query):
     print(f"Web Search for {query}")
-    s = search(query, num_results=8)
+    s = search(query, num_results=5)
     ret_str = ""
     for url in s:
         content = scrape(url)
@@ -70,7 +70,7 @@ def search_web(query):
 
 def search_news(query):
     print(f"News Search for {query}")
-    googlenews = GNews(max_results=8)
+    googlenews = GNews(max_results=5)
     articles = googlenews.get_news(query)
     # print(articles)
     ret_str = "*********************************** NEWS ARTICLES ***********************************\n"

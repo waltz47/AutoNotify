@@ -244,7 +244,12 @@ def set_notify(query, email, session):
     
         cnt += 1
         if cnt > 10:
-            print("COUNTER EXCEEDED MAX ALLOWED LIMIT")
+            print("COUNTER EXCEEDED MAX ALLOWED LIMIT. Deleting query from DB and exiting.")
+            # Delete the query from the database
+            query_entries = session.query(Query).filter_by(query=query, email=email).all()
+            for query_entry in query_entries:
+                session.delete(query_entry)
+            session.commit()
             break
     
         # print(messages)
