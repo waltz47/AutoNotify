@@ -97,12 +97,12 @@ def trigger_occured(heading, body, recipient_email, session):
     email_entry = Email(recipient_email=recipient_email, heading=heading, body=body)
     session.add(email_entry)
     session.commit()
-    # Update the Query entries instead of deleting them
+    # Delete the Query entries instead of updating them
     query_entries = session.query(Query).filter_by(email=recipient_email).all()
     for query_entry in query_entries:
-        query_entry.email_sent = True
+        session.delete(query_entry)
     session.commit()
-    return "Email details stored in database."
+    return "Email details stored in database and query deleted."
 
 def search_flights(origin, destination, depart_date):
     import requests

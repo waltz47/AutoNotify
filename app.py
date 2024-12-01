@@ -56,7 +56,7 @@ def process_queries():
     frequency = 10 if args.debug else 1800
     while True:
         with app.app_context():
-            print("process_queries function called")
+            print("Processing queries")
             # Fetch queries that are not being processed
             queries = db.session.query(Query).filter(Query.email_sent == False, Query.is_processing == False).all()
             for query_entry in queries:
