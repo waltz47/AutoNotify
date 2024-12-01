@@ -136,18 +136,20 @@
             bottom: 0;
             width: 100%;
         }
+        input[type="date"] {
+            width: 300px; /* Adjust width to match other inputs */
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>AutoNotify</h1>
-        <h2>Get relevant information instantly</h2>
+        <h2>Be notified instantly</h2>
         <form method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="text" id="query" name="query" placeholder="Enter your query" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your query'" autofocus onkeydown="if(event.key === 'Enter') { event.preventDefault(); document.querySelector('input[name=email]').focus(); }">
             <input type="email" id="email" name="email" placeholder="Enter your email" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your email'" required onkeydown="if(event.key === 'Enter') { this.form.submit(); }">
             <select id="trigger_time" name="trigger_time">
-                <option value="60s">Every minute</option>
                 <option value="1h">Every hour</option>
                 <option value="1d">Every day</option>
                 <option value="1w">Every week</option>

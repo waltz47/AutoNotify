@@ -7,6 +7,7 @@ from mailer import send_pending_emails
 from flask_wtf import CSRFProtect
 from datetime import datetime, timedelta
 from fn import get_random_events
+import argparse
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key_here'  # Replace with your secret key
@@ -16,6 +17,10 @@ db.init_app(app)
 with app.app_context():
     db.drop_all()
     db.create_all()
+
+parser = argparse.ArgumentParser(description='AutoNotifier Application')
+parser.add_argument('--debug', action='store_true', help='Run the application in debug mode')
+args = parser.parse_args()
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -48,6 +53,7 @@ def store_query_in_db(query, email, trigger_time, deadline):
 query_processor_thread = None
 
 def process_queries():
+    frequency = 10 if args.debug else 1800
     while True:
         with app.app_context():
             print("process_queries function called")
@@ -74,6 +80,7 @@ def process_queries():
                         query_entry.last_run_time = datetime.now()
                         db.session.commit()
                         # Process the query
+                        print("Calling set notify for query", query_entry.query)
                         set_notify(query_entry.query, query_entry.email, session=db.session)
                         # After processing, reset is_processing to False
                         query_entry.is_processing = False
@@ -85,12 +92,11 @@ def process_queries():
                         db.session.commit()
                         print(f"Error processing query {query_entry.id}: {e}")
             db.session.commit()
-            time.sleep(60)  # Adjust sleep time if necessary
+            time.sleep(frequency)  # Adjust sleep time based on debug mode
 
 def parse_interval(trigger_time):
-    if trigger_time == '60s':
-        return timedelta(seconds=60)
-    elif trigger_time == '1h':
+    # Removed the "60s" option
+    if trigger_time == '1h':
         return timedelta(hours=1)
     elif trigger_time == '1d':
         return timedelta(days=1)
@@ -113,10 +119,11 @@ def start_query_processor():
 
 def start_email_sender():
     def run():
+        frequency = 10 if args.debug else 1800
         while True:
             with app.app_context():
                 send_pending_emails()
-            time.sleep(60)
+            time.sleep(frequency)
     thread = Thread(target=run)
     thread.daemon = True
     thread.start()
@@ -125,4 +132,4 @@ start_query_processor()
 start_email_sender()
 
 if __name__ == '__main__':
-    app.run(debug=True)  # Set debug to False for deployment
+    app.run(debug=args.debug)  # Set debug based on argument

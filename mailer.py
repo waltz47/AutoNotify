@@ -19,7 +19,7 @@ def send_mail(heading, body, recipient_email):
     # Define the email
     send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
         to=[{"email": recipient_email}],
-        sender={"name": "psy", "email": "sparkros26@gmail.com"},
+        sender={"name": "NotifyMe", "email": "sparkros26@gmail.com"},
         subject=heading,
         html_content=body
     )

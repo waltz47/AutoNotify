@@ -1,29 +1,29 @@
 import os
-from googlesearch import search
 import requests
 import os
 from openai import OpenAI
 from bs4 import BeautifulSoup
 import re
-import json
 from datetime import datetime
 from flask import Flask, render_template, request
 from mailer import *
 from models import db, Email, Query
-import urllib
-from gnews import GNews
-from googlenewsdecoder import new_decoderv1
-import urllib.request
 from fn import *
 import html
 
+using_openai = False
+
 #VARIABLES
-MODEL_NAME = "grok-beta"
+if using_openai:
+    MODEL_NAME = "gpt-4o-mini"
+else:
+    MODEL_NAME = "grok-beta"
+
 
 def call_function_by_name(function_name, arguments, session):
     print("Function call: ", function_name)
-    if function_name == "store_email_in_db":
-        return store_email_in_db(session=session, **arguments)
+    if function_name == "trigger_occured":
+        return trigger_occured(session=session, **arguments)
     elif function_name == "search_news":
         search_results = search_news(**arguments)
         return search_results
@@ -71,7 +71,7 @@ functions = [
         },
     },
     {
-        "name": "store_email_in_db",
+        "name": "trigger_occured",
         "description": "Store email details in the database to be sent",
         "parameters": {
             "type": "object",
@@ -164,26 +164,24 @@ def set_notify(query, email, session):
     safe_query = html.escape(query)
     safe_email = html.escape(email)
     messages=[
-        {"role": "system", "content": f'''You are a helpful assistant designed to notify customer about the things they want to be notified about. It could be anything: concerts, rocket launches, product launches, upcoming podcasts, dates, flight prices etc. 
-        Please follow these instructions:
-            1. Prepare a search term/phrase that can be used to search the web for news and articles. Use the tools at your disposal to get the latest information. The result might be old or new information. Go through it carefully.
-            2. For dates or numbers, use the provided tools for comparisons.
-            3. If the event has occured, you need to create en email with a heading and body. The body should be in the following format: 
-                "Hi, 
-                you are being notified that......". 
-            Use HTML formatting for the body. The email should contain all the details. Sign off as 'AutoNotify'.
-            4. If the event has not occured, go to step #6 and end the conversation.
-            5. Use the `store_email_in_db` tool to store the email details in the database to be sent.
-            6. End the conversation using the `end` tool.
+        {"role": "system", "content": f'''You are a helpful AI asistant designed to notify users about their queries based on certain triggers.
+        Use the following methodology strictly:
+        1. Find the trigger that is appropriate for the user's query.
+        2. Use the tools at your disposal to see if the trigger has occured. For dates, numbers, currencies etc use the tools provided at youe disposal for comparison.
+        3. If it has not occured, end the conversation (use the 'end' tool).
+        4. If it has occured, send an email to the user with the details of the trigger. The email should be in HTML format with bulleted detail points. Sign off as 'AutoNotify'.
 
         The user's email for your reference is: {safe_email}.'''},
         {"role": "user", "content": safe_query}
     ]
 
-    client = OpenAI(
-        api_key=os.environ['XAI_API_KEY'],
-        base_url="https://api.x.ai/v1",
-    )
+    if using_openai:
+        client = OpenAI()
+    else:
+        client = OpenAI(
+            api_key=os.environ['XAI_API_KEY'],
+            base_url="https://api.x.ai/v1",
+        )
 
     tools = [{'type': "function", "function": f} for f in functions]
 
@@ -197,11 +195,12 @@ def set_notify(query, email, session):
             tools=tools,
             temperature=0.0,
         )
+        
+        try:
+            print(f"LLM response (cnt: {cnt} messages_length: {len(messages)}):  {response.choices[0].message.content}")
+        except:
+            pass
 
-        print(f"LLM response (cnt: {cnt} messages_length: {len(messages)}):  {response.choices[0].message.content}")
-
-        if "exit" in response.choices[0].message.content:
-            break
         try:
             tool_call = response.choices[0].message.tool_calls[0]
         except:
@@ -213,7 +212,10 @@ def set_notify(query, email, session):
 
         # call the tool
         function_name = tool_call.function.name
-        arguments = json.loads(tool_call.function.arguments)
+        if using_openai:
+            arguments = json.loads(tool_call.function.arguments)
+        else:
+            arguments = json.loads(tool_call.function.arguments)
 
         if function_name == "end":
             print("Called exit function")
@@ -222,18 +224,29 @@ def set_notify(query, email, session):
         result = call_function_by_name(function_name, arguments, session)
         print(f"Result of {function_name} is", result)
 
-        function_call_result_message = {
-            "role": "function",
-            "name": function_name,
-            "content": str(result)  # Convert result to string
-        }
+        if using_openai:
+            function_call_result_message = {
+                "role": "tool",
+                "content": str(result),
+                "tool_call_id": response.choices[0].message.tool_calls[0].id,
+                
+            }
+        else:
+            function_call_result_message = {
+            "role": "tool",
+            "content": str(result),
+            "tool_call_id": response.choices[0].message.tool_calls[0].id
+            }
     
         # append tool results to the history and repeat
+        messages.append(response.choices[0].message)
         messages.append(function_call_result_message)
     
         cnt += 1
         if cnt > 10:
             print("COUNTER EXCEEDED MAX ALLOWED LIMIT")
             break
+    
+        # print(messages)
 
     print("*****************************END*********************************")
