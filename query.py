@@ -15,7 +15,7 @@ using_openai = False
 
 #VARIABLES
 if using_openai:
-    MODEL_NAME = "gpt-4o-mini"
+    MODEL_NAME = "gpt-4o"
 else:
     MODEL_NAME = "grok-beta"
 
@@ -40,49 +40,49 @@ def call_function_by_name(function_name, arguments, session):
 functions = [
     {
         "name": "search_news",
-        "description": "Search the web for latest/old news",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "query": {
-                    "type": "string",
-                    "description": "The topic you want to search for (as detailed as possible)",
-                    "example_value": "SpaceX Current CEO",
-                },
-            },
-            "required": ["query"],
-            "optional": [],
-        },
-    },
-    {
-        "name": "search_web",
         "description": "Search the web for information on a topic",
         "parameters": {
             "type": "object",
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "The topic you want to search for (as detailed as possible)",
-                    "example_value": "SpaceX Current CEO",
+                    "description": "Keywords of topic you want to search for",
+                    "example_value": "SpaceX, Current CEO",
                 },
             },
             "required": ["query"],
             "optional": [],
         },
     },
+    # {
+    #     "name": "search_web",
+    #     "description": "Search the web for information on a topic",
+    #     "parameters": {
+    #         "type": "object",
+    #         "properties": {
+    #             "query": {
+    #                 "type": "string",
+    #                 "description": "The topic you want to search for (as detailed as possible)",
+    #                 "example_value": "SpaceX Current CEO",
+    #             },
+    #         },
+    #         "required": ["query"],
+    #         "optional": [],
+    #     },
+    # },
     {
         "name": "trigger_occured",
-        "description": "Store email details in the database to be sent",
+        "description": "Store details in the database for a trigger that has occured",
         "parameters": {
             "type": "object",
             "properties": {
                 "heading": {
                     "type": "string",
-                    "description": "The email heading",
+                    "description": "The title of the trigger",
                 },
                 "body": {
                     "type": "string",
-                    "description": "The content of the email",
+                    "description": "Details of the trigger event",
                 },
                 "recipient_email": {
                     "type": "string",
@@ -94,17 +94,21 @@ functions = [
         },
     },
     {
-        "name": "date_has_passed",
-        "description": "Compare a date with the current date and return if it has already passed",
+        "name": "compare_dates",
+        "description": "Compare two dates to see which one is earlier",
         "parameters": {
             "type": "object",
             "properties": {
-                "date_str": {
+                "date_str_A": {
+                    "type": "string",
+                    "description": "The date string to compare, in the format '%d %b, %Y'",
+                },
+                "date_str_B": {
                     "type": "string",
                     "description": "The date string to compare, in the format '%d %b, %Y'",
                 },
             },
-            "required": ["date_str"],
+            "required": ["date_str_A", "date_str_B"],
             "optional": [],
         },
     },
@@ -160,19 +164,18 @@ functions = [
     },
 ]
 
-def set_notify(query, email, session):
-    safe_query = html.escape(query)
+def set_notify(trigger, email, session):
+    print("Calling set notify for query", trigger)
+    safe_trigger = html.escape(trigger)
     safe_email = html.escape(email)
-    messages=[
-        {"role": "system", "content": f'''You are a helpful AI asistant designed to notify users about their queries based on certain triggers.
-        Use the following methodology strictly:
-        1. Find the trigger that is appropriate for the user's query.
-        2. Use the tools at your disposal to see if the trigger has occured. For dates, numbers, currencies etc use the tools provided at youe disposal for comparison.
-        3. If it has not occured, end the conversation (use the 'end' tool).
-        4. If it has occured, send an email to the user with the details of the trigger. The email should be in HTML format with bulleted detail points. Sign off as 'AutoNotify'.
 
-        The user's email for your reference is: {safe_email}.'''},
-        {"role": "user", "content": safe_query}
+    messages = [
+        {"role": "system", "content": f'''You are an AI system designed to determine whether certain triggers have occured or not. Your job is to honestly and accurately determine whether the trigger has occured or not using the tools available to you.
+        If the trigger has occured, you must call the `trigger_occured` tool with the heading and body provided. The user's email for your reference is: {safe_email}. The email body must be in HTML and must have all the details.
+        If the trigger has not occured or if the trigger condtion fails, you must do nothing and call the `end` tool.
+        
+        For reference, the current date is: {get_current_date()}.'''},
+        {"role": "user", "content": f'''The trigger is {safe_trigger}''' }
     ]
 
     if using_openai:

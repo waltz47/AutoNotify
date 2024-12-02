@@ -6,7 +6,7 @@ import time
 from mailer import send_pending_emails
 from flask_wtf import CSRFProtect
 from datetime import datetime, timedelta
-from fn import get_random_events
+from fn import get_random_events, get_trigger
 import argparse
 from secrets import token_hex
 
@@ -29,7 +29,7 @@ def index():
         email = request.form['email']
         trigger_time = request.form['trigger_time']
         deadline = request.form['deadline']
-        store_query_in_db(query, email, trigger_time, deadline)
+        Thread(target=handle_user_query, args=(query, email, trigger_time, deadline, db.session)).start()
         return redirect(url_for('confirmation', email=email))
     return render_template('index.html')
 
@@ -42,13 +42,14 @@ def confirmation():
 def events():
     return jsonify(get_random_events())
 
-def store_query_in_db(query, email, trigger_time, deadline):
-    deadline_dt = datetime.strptime(deadline, '%Y-%m-%d')
-    # Assume End Of Day if time is not provided
-    deadline_dt = deadline_dt.replace(hour=23, minute=59, second=59)
-    query_entry = Query(query=query, email=email, trigger_time=trigger_time, deadline=deadline_dt)
-    db.session.add(query_entry)
-    db.session.commit()
+def handle_user_query(query, email, trigger_time, deadline, session):
+    with app.app_context():
+        trigger = get_trigger(query)
+        deadline_dt = datetime.strptime(deadline, '%Y-%m-%d')
+        deadline_dt = deadline_dt.replace(hour=23, minute=59, second=59)
+        new_query = Query(query=query, email=email, trigger_time=trigger_time, deadline=deadline_dt, last_run_time=None, is_processing=False, trigger=trigger)
+        session.add(new_query)
+        session.commit()
 
 query_processor_thread = None
 
@@ -56,8 +57,8 @@ def process_queries():
     while True:
         with app.app_context():
             print("Processing queries")
-            # Fetch queries that are not being processed
-            queries = db.session.query(Query).filter(Query.email_sent == False, Query.is_processing == False).all()
+            # Fetch queries that are not being processed and have a trigger
+            queries = db.session.query(Query).filter(Query.is_processing == False, Query.trigger.isnot(None)).all()
             for query_entry in queries:
                 # Check if deadline has passed
                 if datetime.now() > query_entry.deadline:
@@ -79,8 +80,7 @@ def process_queries():
                         query_entry.last_run_time = datetime.now()
                         db.session.commit()
                         # Process the query
-                        print("Calling set notify for query", query_entry.query)
-                        set_notify(query_entry.query, query_entry.email, session=db.session)
+                        set_notify(query_entry.trigger, query_entry.email, session=db.session)
                         # After processing, reset is_processing to False
                         query_entry.is_processing = False
                         db.session.commit()

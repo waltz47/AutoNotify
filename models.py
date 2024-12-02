@@ -16,4 +16,4 @@ class Query(db.Model):
     trigger_time = db.Column(db.String(50), nullable=False)
     deadline = db.Column(db.DateTime, nullable=False)
     last_run_time = db.Column(db.DateTime)
-    email_sent = db.Column(db.Boolean, default=False)
+    trigger = db.Column(db.String(255), nullable=False)  # New column to store the trigger

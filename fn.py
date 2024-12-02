@@ -16,10 +16,14 @@ import urllib.request
 from googlesearch import search
 import json
 
-def summarize_str(text):
+def get_current_date():
+    return datetime.now().strftime("%d %b, %Y")
+
+def summarize_str(text, trigger):
     MODEL_NAME = "grok-beta"
     messages=[
-        {"role": "system", "content": f'''You are a helpful assistant desinged to summarize the text. Return the summary of the given text. Do not omit any details.'''},
+        {"role": "system", "content": f'''You are a helpful assistant desinged to summarize text based on a given search phrase. Do not omit any details relevant to the search term.
+        The search term is: {trigger}. Simple print the summarized output. Do not print any other text or greetings.'''},
         {"role": "user", "content": text}
     ]
     client_summ = OpenAI(
@@ -30,20 +34,53 @@ def summarize_str(text):
     response = client_summ.chat.completions.create(
         model=MODEL_NAME,
         messages=messages,
-        temperature=0.4,
+        temperature=0.3,
     )
     return response.choices[0].message.content
 
-def get_current_date():
-    return datetime.now().strftime("%d %b, %Y")
+def get_trigger(query):
+    
+    MODEL_NAME = "grok-beta"
+        
+    trigger_prompt = f'''For the given user query, generate the trigger that is appropriate for the user's query in detail. There should be no ambiguity. It should take into account all of the following parameters and more: date of query, type of event, recurring events etc.
+    The query was made on the following date: {get_current_date()}.
+    
+    For example:
+    If the user query is: 'Notify me when the CEO of XYZ changes".
+    The trigger would be: When the CEO of XYZ changes after <query_date>.
+    
+    If the user query is: 'When is the next SpaceX launch for starship?'
+    The trigger would be: The next SpaceX launch for starship that happens after <query_date>.
 
-def date_has_passed(date_str):
-    # Parse the input date string into a date object
-    input_date = datetime.strptime(date_str, "%d %b, %Y").date()
-    # Get the current date
-    current_date = datetime.now().date()
-    # Compare dates
-    return input_date < current_date
+    Simply print the trigger in the following format:
+    "Trigger: <trigger>"
+    '''
+    messages=[
+        {"role": "system", "content": trigger_prompt},
+        {"role": "user", "content": query}
+    ]
+    client_summ = OpenAI(
+        api_key=os.environ['XAI_API_KEY'],
+        base_url="https://api.x.ai/v1",
+    )
+
+    response = client_summ.chat.completions.create(
+        model=MODEL_NAME,
+        messages=messages,
+        temperature=0.0,
+    )
+    return response.choices[0].message.content
+
+def compare_dates(date_str_A, date_str_B):
+    print(f"Comparing dates {date_str_A} and {date_str_B}")
+    date1 = datetime.strptime(date_str_A, "%d %b, %Y").date()
+    date2 = datetime.strptime(date_str_B, "%d %b, %Y").date()
+    if date1 < date2:
+        return f"{date_str_A} is before {date_str_B}"
+    elif date1 == date2:
+        return f"{date_str_A} is the same as {date_str_B}"
+    else:
+        return f"{date_str_A} is after {date_str_B}"
 
 def scrape(url):
     print(f"Scraping {url}")
@@ -52,7 +89,7 @@ def scrape(url):
         soup = BeautifulSoup(thepage, "html.parser")
         text = soup.get_text()
         words = text.split()
-        limited_text = ' '.join(words[:500])
+        limited_text = ' '.join(words[:1000])
         return limited_text
     except Exception as e:
         print(f"Error scraping {url}: {e}")
@@ -60,12 +97,12 @@ def scrape(url):
 
 def search_web(query):
     print(f"Web Search for {query}")
-    s = search(query, num_results=5)
+    s = search(query, num_results=3)
     ret_str = ""
     for url in s:
         content = scrape(url)
         ret_str += content + "\n"
-    return summarize_str(ret_str)
+    return ret_str
 
 
 def search_news(query):
@@ -85,7 +122,10 @@ def search_news(query):
             print(f"Error fetching article {article.get('title')}: {e}")
             continue
     ret_str += "*********************************** END OF NEWS ARTICLES ***********************************\n"
-    return summarize_str(ret_str)
+    news_articles = ret_str
+
+    news_articles += "\n\n" + search_web(query)
+    return summarize_str(news_articles, query)
 
 def email_exists(recipient_email, heading, body):
     return db.session.query(Email).filter_by(recipient_email=recipient_email, heading=heading, body=body).first() is not None
