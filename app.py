@@ -16,7 +16,6 @@ csrf = CSRFProtect(app)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///emails.db'
 db.init_app(app)
 with app.app_context():
-    db.drop_all()
     db.create_all()
 
 debug_mode = False  # Default debug mode

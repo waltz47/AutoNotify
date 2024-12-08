@@ -139,6 +139,22 @@
         input[type="date"] {
             width: 300px; /* Adjust width to match other inputs */
         }
+        .form-title {
+            font-size: 16px;
+            color: rgba(0, 0, 0, 0.6); /* Slightly transparent */
+            margin-bottom: 5px;
+            text-align: left;
+            width: 100px; /* Fixed width for labels */
+            margin-right: 10px; /* Reduce spacing */
+        }
+        .form-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .form-group input, .form-group select {
+            flex: 1;
+        }
     </style>
 </head>
 <body>
@@ -147,15 +163,27 @@
         <h2>Be notified instantly</h2>
         <form method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="text" id="query" name="query" placeholder="Enter your query" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your query'" autofocus onkeydown="if(event.key === 'Enter') { event.preventDefault(); document.querySelector('input[name=email]').focus(); }">
-            <input type="email" id="email" name="email" placeholder="Enter your email" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your email'" required onkeydown="if(event.key === 'Enter') { this.form.submit(); }">
-            <select id="trigger_time" name="trigger_time">
-                <option value="1h">Every hour</option>
-                <option value="1d">Every day</option>
-                <option value="1w">Every week</option>
-                <option value="1m">Every month</option>
-            </select>
-            <input type="date" id="deadline" name="deadline" placeholder="Select a deadline" required>
+            <div class="form-group">
+                <!-- <label class="form-title" for="query">Query</label> -->
+                <input type="text" id="query" name="query" placeholder="Enter your query" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your query'" autofocus onkeydown="if(event.key === 'Enter') { event.preventDefault(); document.querySelector('input[name=email]').focus(); }">
+            </div>
+            <div class="form-group">
+                <!-- <label class="form-title" for="email">Email</label> -->
+                <input type="email" id="email" name="email" placeholder="Enter your email" onfocus="this.placeholder = ''" onblur="this.placeholder = 'Enter your email'" required onkeydown="if(event.key === 'Enter') { this.form.submit(); }">
+            </div>
+            <div class="form-group">
+                <label class="form-title" for="trigger_time">Sensitivity</label>
+                <select id="trigger_time" name="trigger_time">
+                    <option value="1h">Every hour</option>
+                    <option value="1d">Every day</option>
+                    <option value="1w">Every week</option>
+                    <option value="1m">Every month</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-title" for="deadline">Deadline</label>
+                <input type="date" id="deadline" name="deadline" placeholder="Select a deadline" required>
+            </div>
             <input type="submit" value="Submit">
         </form>
     </div>
